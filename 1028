@@ -1,0 +1,130 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
+import spacy
+import torch
+from collections import defaultdict
+from transformers import PegasusForConditionalGeneration, PegasusTokenizer
+
+
+# In[2]:
+
+
+with open("harry_potter.txt", "r") as f:
+    text = f.read()
+
+
+# In[3]:
+
+
+nlp = spacy.load("en_core_web_sm")
+doc = nlp(text)
+
+
+# In[4]:
+
+
+# Extract characters (filter by "PERSON" entity label)
+characters = []
+for ent in doc.ents:
+    if ent.label_ == "PERSON":
+        # print(ent.text)
+        characters.append(ent.text)
+
+
+# In[5]:
+
+
+characters = list(set(characters))  
+
+for char in characters:
+    print(char)
+
+
+# In[6]:
+
+
+# Dictionary to store sentences about each character
+character_summaries = defaultdict(list)
+
+
+# In[7]:
+
+
+count = 0
+
+for paragraph in text.split("\n\n"):
+    paragraph = paragraph.replace("\n", " ")
+    print(paragraph)
+    print("----------------------------")
+    count += 1
+
+    
+    doc = nlp(paragraph)
+    for ent in doc.ents:
+        if ent.label_ == "PERSON" and ent.text in characters:
+            character_summaries[ent.text].append(paragraph)
+
+    if(count == 100): break
+
+
+# In[8]:
+
+
+# Summarize by listing unique, relevant sentences for each character
+
+character_summary = {char: list(set(sents)) for char, sents in character_summaries.items()}
+
+
+# In[9]:
+
+
+def summarize_character(paragraphs, character_name):
+    # Load the PEGASUS tokenizer and model
+    model_name = "google/pegasus-large"  # You can choose another variant if desired
+    tokenizer = PegasusTokenizer.from_pretrained(model_name)
+    model = PegasusForConditionalGeneration.from_pretrained(model_name)
+
+    # Combine paragraphs into a single text block
+    input_text = f"Summarize the following details about {character_name}: " + " ".join(paragraphs)
+
+    # Tokenize the input
+    inputs = tokenizer(input_text, max_length=1024, truncation=True, return_tensors="pt")
+
+    # Generate summary
+    summary_ids = model.generate(inputs["input_ids"], max_length=150, num_beams=5, early_stopping=True)
+    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+
+    return summary
+
+
+# In[10]:
+
+
+# Sample prompt for an NLP model
+for character, paragraphs in character_summary.items():
+    summary = summarize_character(paragraphs, character)
+    print("Summary:", summary)
+    # Use a language model API to generate the summary (example using OpenAI API or similar)
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
